@@ -1,0 +1,25 @@
+{
+  "name": "groom-ma-posse",
+  "version": "0.0.0",
+  "description": "Woah Man.",
+  "main": "server.js",
+  "dependencies": {
+    "express": "^4.9.7",
+    "fbgraph": "^0.2.13"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dclaze/groom-ma-posse.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dclaze/groom-ma-posse/issues"
+  },
+  "homepage": "https://github.com/dclaze/groom-ma-posse"
+}
