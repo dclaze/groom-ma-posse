@@ -1,16 +1,38 @@
 <html ng-app="groomMaPosse">
 
-	<head>
-		<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.2.20/angular.js"></script>
-		<script type="text/javascript" src="app.js"></script>
-		<link rel="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/css/bootstrap-theme.css"></link>
-	</head>
+<head>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.2.20/angular.js"></script>
+    <script type="text/javascript" src="app.js"></script>
+    <script>
+    window.fbAsyncInit = function() {
+        FB.init({
+            appId: '1482953305302455',
+            xfbml: true,
+            version: 'v2.1'
+        });
+    };
+
+    (function(d, s, id) {
+        var js, fjs = d.getElementsByTagName(s)[0];
+        if (d.getElementById(id)) {
+            return;
+        }
+        js = d.createElement(s);
+        js.id = id;
+        js.src = "//connect.facebook.net/en_US/sdk.js";
+        fjs.parentNode.insertBefore(js, fjs);
+    }(document, 'script', 'facebook-jssdk'));
+    </script>
+    <link rel="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/css/bootstrap-theme.css"></link>
+</head>
+
 <body ng-controller="Main">
-	Facebook Graph API
-	<form ng-submit="login()">
-		<input ng-model="username"/>
-		<input ng-model="password"/>
-		<button type="submit">Login</button>
-	</form>
+    Facebook Graph API
+    <form ng-submit="login()">
+        <input ng-model="username" />
+        <input ng-model="password" />
+        <button type="submit">Login</button>
+    </form>
 </body>
+
 </html>
