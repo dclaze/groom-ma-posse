@@ -4,9 +4,8 @@
   "description": "Woah Man.",
   "main": "server.js",
   "dependencies": {
-    "express": "^4.9.7",
-    "fbgraph": "^0.2.13",
-    "nconf": "^0.6.9"
+    "fbgraph": "~0.3.0",
+    "nconf": "~0.6.9"
   },
   "devDependencies": {},
   "scripts": {
