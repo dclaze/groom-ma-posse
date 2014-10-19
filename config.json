@@ -1,4 +1,8 @@
 {
-	"appId": "<appId>",
-	"appSecret": "<appSecret>"
+	"twitter": {
+		"consumerKey": "<consumer-key>",
+		"consumerSecret": "<consumer-secret>",
+		"tokenKey": "<token-key>",
+		"tokenSecret": "<token-secret>"
+	}
 }
