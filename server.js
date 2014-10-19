@@ -1,7 +1,10 @@
 var express = require('express'),
     app = express(),
-    graph = require('fbgraph'),
+    util = require('util'),
+    twitter = require('twitter'),
+    TwitterMiner = require('./twitterMiner'),
     nconf = require('nconf');
+require('sugar');
 
 nconf.argv()
     .env()
@@ -17,6 +20,18 @@ app.all('*', function(req, res, next) {
     next();
 });
 
+var twit = new twitter({
+    consumer_key: nconf.get('twitter:consumerKey'),
+    consumer_secret: nconf.get('twitter:consumerSecret'),
+    access_token_key: nconf.get('twitter:tokenKey'),
+    access_token_secret: nconf.get('twitter:tokenSecret')
+});
+
+var twitterMiner = new TwitterMiner(twit);
+twitterMiner.getFriends(26554627, true, function(network) {
+    console.log("Done", network.length);
+});
+
 app.get('/login', function(req, res) {
     var authUrl = graph.getOauthUrl({
         "client_id": nconf.get('appId'),
@@ -24,6 +39,13 @@ app.get('/login', function(req, res) {
         "scope": "user_friends,user_interests,user_likes"
     });
     res.redirect(authUrl);
+});
+
+app.get('/getNetwork', function(req, res) {
+    var twitterMiner = new TwitterMiner(twit);
+    twitterMiner.getFriends(req.query.id, true, function(network) {
+        res.send(network);
+    });
 });
 
 app.get('/authorized', function(req, res) {
@@ -45,11 +67,6 @@ app.get('/authorized', function(req, res) {
             console.log(res);
         });
     });
-});
-
-app.get('/goodGodItWorks', function(req, res) {
-    res.send("YO");
-    res.end();
 });
 
 var server = app.listen(3000, function() {

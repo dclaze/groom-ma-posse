@@ -1,83 +1,183 @@
-require('sugar');
-var streamline = require('streamline');
-var neo4j = require('neo4j'),
-    db = new neo4j.GraphDatabase('http://localhost:7474');
+if (typeof exports !== 'undefined') {
+    var Graph = require('./graph');
+    require('sugar');
+    var fs = require('fs');
+}
 
-// db.createNode({id:"letmein123"})
-// 	.save(function(err, node){
-// 		if(err)
-// 			console.log(err)
-// 		console.log(node)
-// 	})
-
-
-
-function Graph() {
-    this.verticies = {};
-};
-
-Graph.prototype.addVertex = function(id, connections) {
-    this.verticies[id] = new Vertex(id, connections);
-};
-
-Graph.prototype.getNeighbors = function(vertex) {
-    var graph = this;
-    return vertex.getConnections().map(function(connectionId) {
-        return graph[connectionId];
+var uuid = function() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0,
+            v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
     });
 };
 
-Graph.prototype.getVerticies = function() {
-    var graph = this;
-    return Object.keys(this.verticies).map(function(vertex) {
-        return graph.verticies[vertex];
-    })
-};
+function CliqueDetection(graph) {
+    this.graph = graph;
+}
 
-function Vertex(id, connections) {
-    this.id = id;
-    this.connections = connections;
-};
-Vertex.prototype.getConnections = function() {
-    return this.connections;
-};
-Vertex.prototype.getNumberOfConnections = function() {
-    return this.connections.length;
-};
-Vertex.prototype.isConnected = function(vertex) {
-    return this.connections.indexOf(vertex.id) != -1;
-};
-
-var bkGraph = new Graph();
-bkGraph.addVertex(1, [2, 5]);
-bkGraph.addVertex(2, [1, 2, 5]);
-bkGraph.addVertex(3, [2, 4]);
-bkGraph.addVertex(4, [3, 5, 6]);
-bkGraph.addVertex(5, [1, 2, 4]);
-bkGraph.addVertex(6, [4]);
-
-
-var bronKerbosch = function(clique, verticies, processedVerticies) {
-    console.log(clique, verticies, processedVerticies);
+CliqueDetection.prototype.bronKerbosch2 = function(clique, verticies, processedVerticies) {
+    var cliques = [];
     if (verticies.isEmpty() && processedVerticies.isEmpty())
-        return clique;
-    debugger
-    var pivotVertex = choosePivotVertex(verticies.union(processedVerticies));
-    for (var vertex in verticies) {
-        if (!vertex.isConnected(pivotVertex)) {
-            bronKerbosch(clique.union([vertex]),
-                verticies.intersect(bkGraph.getNeighbors(vertex)),
-                processedVerticies.intersect(bkGraph.getNeighbors(vertex)));
-            verticies.push(v);
-            processedVerticies.push(v);
+        cliques.push(clique);
+    else {
+        var pivotVertex = this.choosePivotVertex(verticies.union(processedVerticies));
+        var nonNeighborVerticies = verticies.subtract(this.graph.getNeighbors(pivotVertex));
+        for (var i = 0; i < nonNeighborVerticies.length; i++) {
+            var vertex = nonNeighborVerticies[i];
+            cliques.add(this.bronKerbosch2(clique.union([vertex]), verticies.intersect(this.graph.getNeighbors(vertex)), processedVerticies.intersect(this.graph.getNeighbors(vertex))));
+            verticies = verticies.subtract(vertex);
+            processedVerticies.push(vertex);
         }
     }
+
+    return cliques;
 };
 
-var choosePivotVertex = function(verticies) {
+CliqueDetection.prototype.choosePivotVertex = function(verticies) {
     return verticies.max(function(v) {
         return v.getNumberOfConnections();
     });
 };
 
-bronKerbosch([], bkGraph.getVerticies(), []);
+CliqueDetection.prototype.bronKerbosch3 = function() {
+    var cliques = [];
+    var clique = [],
+        verticies = this.graph.getVerticies();
+    processedVerticies = [];
+    var orderedVerticies = this.graph.getVerticies().sortBy(this.vertexDegeneracy);
+    for (var i = 0; i < orderedVerticies.length; i++) {
+        var vertex = orderedVerticies[i];
+        cliques.add(this.bronKerbosch2(clique.union(vertex), verticies.intersect(this.graph.getNeighbors(vertex)), processedVerticies.intersect(this.graph.getNeighbors(vertex))));
+        verticies = verticies.subtract(vertex);
+        processedVerticies.push(vertex);
+    }
+    return cliques;
+};
+
+CliqueDetection.prototype.vertexDegeneracy = function(vertex) {
+    return vertex.getNumberOfConnections();
+};
+
+function Clique(vertexes) {
+    this.id = uuid();
+    this.vertexes = vertexes;
+};
+Clique.prototype.intersection = function(clique) {
+    return this.vertexes.intersect(clique.vertexes);
+};
+
+function Community(clique) {
+    this.cliques = [];
+    this.id = uuid();
+    if (clique)
+        this.cliques.push(clique);
+};
+Community.prototype.add = function(clique) {
+    this.cliques.push(clique);
+};
+
+// NJIT = JSON.parse(fs.readFileSync(__dirname + '/twitter_njit.json'));
+NJIT = NJIT.filter(function(item) {
+    return !(!item.connections || item.connections.length == 0);
+});
+var NJITGraph = new Graph();
+for (var i = 0; i < NJIT.length; i++) {
+    NJITGraph.addVertex(NJIT[i].id, NJIT[i].connections);
+};
+var cliqueDetector = new CliqueDetection(NJITGraph);
+var NJITCliques = cliqueDetector.bronKerbosch3();
+
+var cliques = NJITCliques.map(function(clique) {
+    return new Clique(clique);
+});
+
+var cliqueToNode = {};
+for (var i = 0; i < cliques.length; i++) {
+    var clique = cliques[i];
+    cliqueToNode[clique.id] = [].concat(clique.vertexes);
+}
+
+var nodeToClique = {};
+for (var i = 0; i < cliques.length; i++) {
+    var clique = cliques[i];
+    for (var j = 0; j < clique.vertexes.length; j++) {
+        var vertex = clique.vertexes[j];
+        if (!nodeToClique.hasOwnProperty(vertex.id))
+            nodeToClique[vertex.id] = [clique];
+        else
+            nodeToClique[vertex.id].push(clique);
+    }
+}
+
+var getCommunities = function(cliques, k) {
+    var communnities = [];
+    var cliquesToCheck = [].concat(cliques);
+    while (cliquesToCheck.length) {
+        var clique = cliquesToCheck.shift(),
+            community = new Community();
+        community.add(clique);
+
+        var neighboringCliques = getNeighboringCliques(clique, nodeToClique);
+        for (var j = 0; j < neighboringCliques.length; j++) {
+            var neighbor = neighboringCliques[j];
+            if (neighbor.intersection(clique).length >= (k - 1)) {
+                community.add(neighbor);
+                cliquesToCheck.remove(neighbor);
+                for (var k = 0; k < neighbor.vertexes; k++) {
+                    var vertex = neighbor.vertexes[k];
+                    nodeToClique[vertex.id].remove(neighbor);
+                }
+            }
+        }
+        communnities.push(community);
+    }
+    return communnities;
+};
+
+
+var getNeighboringCliques = function(clique, nodeToCliqueDictionary) {
+    var neighboringCliques = [];
+    for (var i = 0; i < clique.vertexes.length; i++) {
+        var vertex = clique.vertexes[i];
+        neighboringCliques.add(nodeToCliqueDictionary[vertex.id]);
+    }
+
+    return neighboringCliques;
+};
+
+
+COMMUNITIES = getCommunities(cliques, 3);
+
+NODES = [];
+COMMUNITIES.each(function(community) {
+    community.cliques.each(function(clique) {
+        clique.vertexes.each(function(vertex) {
+            var node = NODES.find(function(n) {
+                return n.name == vertex.id;
+            });
+            if (node && node != vertex)
+                return
+            NODES.push({
+                name: vertex.id,
+                connections: vertex.connections,
+                group: community.id
+            });
+        })
+    });
+});
+var CommunityIds = COMMUNITIES.map(function(c){
+    return c.id;
+});
+
+
+LINKS = [];
+NJIT.each(function(item) {
+    item.connections.each(function(connection) {
+        LINKS.push({
+            source: item.id,
+            target: connection,
+            value: 1
+        })
+    })
+})

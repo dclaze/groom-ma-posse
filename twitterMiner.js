@@ -1,11 +1,12 @@
 var Seq = require('seq'),
     Datastore = require('nedb'),
-    GetFriendsPollingInterval = 60 * 1000 + (10 * 1000 * Math.random()); //Twitter Rate Limit (15 Req / 15 Mins) plus some random extra time
+    GetFriendsPollingInterval = 60 * 1000 + (10 * 1000 * Math.random()), //Twitter Rate Limit (15 Req / 15 Mins) plus some random extra time
+    uuid = require('uuid-v4');
 
 function TwitterMiner(twitter, userId) {
     this.twitter = twitter;
     this.db = new Datastore({
-        filename: __dirname + '/twitter_data/' + userId + '.db',
+        filename: __dirname + '/twitter_data/' + ((typeof(userId) === "undefined") ? uuid() : userId )+ '.db',
         autoload: true
     });
 }

@@ -1,40 +1,159 @@
 <html ng-app="groomMaPosse">
 
 <head>
-    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.2.20/angular.js"></script>
-    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/sugar/1.4.1/sugar-full.development.js"></script>
-    <script type="text/javascript" src="app.js"></script>
-    <script type="text/javascript" src="b-test.js"></script>
-    <script>
-    window.fbAsyncInit = function() {
-        FB.init({
-            appId: '1482953305302455',
-            xfbml: true,
-            version: 'v2.1'
-        });
-    };
-
-    (function(d, s, id) {
-        var js, fjs = d.getElementsByTagName(s)[0];
-        if (d.getElementById(id)) {
-            return;
-        }
-        js = d.createElement(s);
-        js.id = id;
-        js.src = "//connect.facebook.net/en_US/sdk.js";
-        fjs.parentNode.insertBefore(js, fjs);
-    }(document, 'script', 'facebook-jssdk'));
-    </script>
-    <link rel="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/css/bootstrap-theme.css"></link>
+    <!--<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.2.20/angular.js"></script>-->
+    <!-- <link rel="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/css/bootstrap-theme.css"></link> -->
+    <script type="text/javascript" src="twitter_njit.js"></script>
+    <script type="text/javascript" src="bower_components/sugar/release/sugar-full.development.js"></script>
+    <script type="text/javascript" src="bower_components/d3/d3.min.js"></script>
+    <script type="text/javascript" src="vertex.js"></script>
+    <script type="text/javascript" src="graph.js"></script>
+    <script type="text/javascript" src="bron-kerbosch.js"></script>
+    <!--<script type="text/javascript" src="app.js"></script>-->
+    <style>
+    .node {
+        stroke: #fff;
+        stroke-width: 1.5px;
+    }
+    .link {
+        stroke: #999;
+        stroke-opacity: .6;
+    }
+    </style>
 </head>
 
 <body ng-controller="Main">
-    Facebook Graph API
-    <form ng-submit="login()">
-        <input ng-model="username" />
-        <input ng-model="password" />
-        <button type="submit">Login</button>
+    <span style="font-size:4em">Twitter Friendship API Viewer</span>
+    <form style="text-align:middle;" ng-submit="twitterLogin()">
+        <!--<button style="bottom:0px; position:absolute; height:300px; width: 400px; font:3em" class="btn-danger" type="submit">Authenticate Twitter</button>-->
     </form>
+    <script>
+    var buildGraph = function() {
+        var width = 960,
+            height = 500,
+            padding = 1.5,
+            clusterPadding = 6,
+            maxRadius = 30;
+
+        var n = NODES.length,
+            m = COMMUNITIES.length;
+
+        var color = d3.scale.category20()
+            .domain(d3.range(m));
+
+        var clusters = [];
+        var maxValue = NODES.max(function(node) {
+            return node.connections.length;
+        }).connections.length;
+
+        var nodes = NODES.map(function(node) {
+            var number = CommunityIds.indexOf(node.group),
+                d = {
+                    name: node.name,
+                    cluster: number,
+                    radius: (node.connections.length / maxValue) * maxRadius
+                };
+            if (!clusters[number] || (d.r > clusters[number].radius)) clusters[number] = d;
+            return d;
+        });
+
+        var force = d3.layout.force()
+            .nodes(nodes)
+            .size([width, height])
+            .gravity(.02)
+            .charge(0)
+            .on("tick", tick)
+            .start();
+
+        var svg = d3.select("body").append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        var circle = svg.selectAll("circle")
+            .data(nodes)
+            .enter()
+            .append("circle")
+            .attr("r", function(d) {
+                return d.radius;
+            })
+            .style("fill", function(d) {
+                return color(d.cluster);
+            })
+            .on('mouseover', function(d) {
+                var nodeSelection = d3.select(this).style({
+                    opacity: '0.8'
+                });
+                nodeSelection.select("text").style({
+                    opacity: '1.0'
+                });
+            })
+            .call(force.drag);
+
+        circle
+            .append("title")
+            .text(function(d) {
+                return d.name;
+            })
+
+        function tick(e) {
+            circle
+                .each(cluster(10 * e.alpha * e.alpha))
+                .each(collide(.5))
+                .attr("cx", function(d) {
+                    return d.x;
+                })
+                .attr("cy", function(d) {
+                    return d.y;
+                });
+        }
+
+        function cluster(alpha) {
+            return function(d) {
+                var cluster = clusters[d.cluster];
+                if (cluster === d) return;
+                var x = d.x - cluster.x,
+                    y = d.y - cluster.y,
+                    l = Math.sqrt(x * x + y * y),
+                    r = d.radius + cluster.radius;
+                if (l != r) {
+                    l = (l - r) / l * alpha;
+                    d.x -= x *= l;
+                    d.y -= y *= l;
+                    cluster.x += x;
+                    cluster.y += y;
+                }
+            };
+        }
+
+        function collide(alpha) {
+            var quadtree = d3.geom.quadtree(nodes);
+            return function(d) {
+                var r = d.radius + maxRadius + Math.max(padding, clusterPadding),
+                    nx1 = d.x - r,
+                    nx2 = d.x + r,
+                    ny1 = d.y - r,
+                    ny2 = d.y + r;
+                quadtree.visit(function(quad, x1, y1, x2, y2) {
+                    if (quad.point && (quad.point !== d)) {
+                        var x = d.x - quad.point.x,
+                            y = d.y - quad.point.y,
+                            l = Math.sqrt(x * x + y * y),
+                            r = d.radius + quad.point.radius + (d.cluster === quad.point.cluster ? padding : clusterPadding);
+                        if (l < r) {
+                            l = (l - r) / l * alpha;
+                            d.x -= x *= l;
+                            d.y -= y *= l;
+                            quad.point.x += x;
+                            quad.point.y += y;
+                        }
+                    }
+                    return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
+                });
+            };
+        }
+    }
+    </script>
+
 </body>
 
 </html>

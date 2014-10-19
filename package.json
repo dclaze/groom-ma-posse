@@ -5,7 +5,8 @@
   "main": "server.js",
   "dependencies": {
     "fbgraph": "~0.3.0",
-    "nconf": "~0.6.9"
+    "nconf": "~0.6.9",
+    "uuid-v4": "~0.1.0"
   },
   "devDependencies": {},
   "scripts": {
